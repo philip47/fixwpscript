@@ -1,8 +1,13 @@
 <?php
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 //## Main Function to Post 
 if (!function_exists("nxs_snapPublishTo")) { function nxs_snapPublishTo($postIDorObj, $aj=false) {  global $nxs_SNAP, $nxs_snapAvNts, $blog_id, $nxs_tpWMPU; $uid=0;
     if (!isset($nxs_SNAP)) return;
-    if (!empty($_POST['nxs_snapPostOptions'])) { $NXS_POSTX = $_POST['nxs_snapPostOptions'];  $NXS_POST = array(); $NXS_POST = NXS_parseQueryStr($NXS_POSTX); } else $NXS_POST = $_POST;
+    if (!empty($_POST['nxs_snapPostOptions'])) { $NXS_POSTX = sanitize_text_field($_POST['nxs_snapPostOptions']);  $NXS_POST = array(); $NXS_POST = NXS_parseQueryStr($NXS_POSTX); } else $NXS_POST = array_map('sanitize_text_field', $_POST);
     if(is_object($postIDorObj)) { $postObj = $postIDorObj; $postID = $postObj->ID; } else { $postID = $postIDorObj; $postObj = get_post($postID); } unset($postIDorObj); $isPost = isset($NXS_POST["snapEdIT"]);
 
 
@@ -149,52 +154,28 @@ if (!function_exists("nxs_checkQuery")){ function nxs_checkQuery(){ set_time_lim
     //## / Debug only - delete later - shows all reords in the Query
 
     //## Get count of tasks
-    $ttr = "FROM ". $wpdb->prefix . "nxs_query WHERE timetorun<'".date_i18n('Y-m-d H:i:s')."'";
-	$quPostsCnt = $wpdb->get_var($wpdb->prepare("SELECT COUNT(id) %s", $ttr));
-	if ($isDebug) prr($ttr, 'TTR:');
-	if ($isDebug) prr($quPostsCnt, 'COUNT:');
-	if ((int)$quPostsCnt<1) return; //## Nothing in Query - return;
-    //## Get 20 tasks
-	$sql = $wpdb->prepare( "SELECT * %s ORDER BY timetorun DESC LIMIT %d", $ttr, $options['numOfTasks'] );
-	$quPosts = $wpdb->get_results($sql, ARRAY_A);
+    $current_time = date_i18n('Y-m-d H:i:s');
+    $table_name = $wpdb->prefix . 'nxs_query';
+    
+    $sql_count = $wpdb->prepare("SELECT COUNT(id) FROM {$table_name} WHERE timetorun < %s", $current_time);
+    $quPostsCnt = $wpdb->get_var($sql_count);
+    
+    if ($isDebug) {
+        prr($sql_count, 'COUNT QUERY:');
+        prr($quPostsCnt, 'COUNT:');
+    }
+    
+    if ((int) $quPostsCnt < 1) {
+        return; // Nothing in query - return
+    }
 
-	// Assuming you have access to the $wpdb object and $options array
-
-	$current_datetime = date_i18n('Y-m-d H:i:s');
-	$ttr = "FROM {$wpdb->prefix}nxs_query WHERE timetorun < %s";
-	$prepared_count_query = $wpdb->prepare("SELECT COUNT(id) {$ttr}", $current_datetime);
-	$quPostsCnt = $wpdb->get_var($prepared_count_query);
-	if ($isDebug) {
-		prr($ttr, 'TTR:');
-		prr($quPostsCnt, 'COUNT:');
-	}
-	if ((int)$quPostsCnt < 1) {
-		return; // Nothing in Query - return
-	}
-// Define the query to get 20 tasks
-	$sql = $wpdb->prepare( "SELECT * %s ORDER BY timetorun DESC LIMIT %d", $ttr, $options['numOfTasks'] );
-	$quPosts = $wpdb->get_results($sql, ARRAY_A);
-
-	$current_time = date_i18n('Y-m-d H:i:s');
-	$sql_count = $wpdb->prepare("SELECT COUNT(id) FROM {$wpdb->prefix}nxs_query WHERE timetorun < %s", $current_time);
-	$quPostsCnt = $wpdb->get_var($sql_count);
-
-	if ($isDebug) {
-		prr($sql_count, 'TTR:');
-		prr($quPostsCnt, 'COUNT:');
-	}
-
-	if ((int) $quPostsCnt < 1) {
-		return; // Nothing in query - return
-	}
-
-// Get 20 tasks with prepared query
-	$sql_select = $wpdb->prepare(
-		"SELECT * FROM {$wpdb->prefix}nxs_query WHERE timetorun < %s ORDER BY timetorun DESC LIMIT %d",
-		$current_time,
-		$options['numOfTasks']
-	);
-	$quPosts = $wpdb->get_results($sql_select, ARRAY_A);
+    // Get tasks with prepared query
+    $sql_select = $wpdb->prepare(
+        "SELECT * FROM {$table_name} WHERE timetorun < %s ORDER BY timetorun DESC LIMIT %d",
+        $current_time,
+        $options['numOfTasks']
+    );
+    $quPosts = $wpdb->get_results($sql_select, ARRAY_A);
 
 
 
